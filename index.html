@@ -75,8 +75,25 @@ ins:[['NHIF',90],['iCHF / CHF',80],['NSSF Health Insurance',90],['AAR Insurance'
 users:[],
 drugs:[['Amoxicillin 500mg','Drug',200,300],['Paracetamol 500mg','Drug',500,100],['ORS sachet','Drug',100,500],['Artemether/Lumefantrine','Drug',120,2500],['Metronidazole 400mg','Drug',150,200],['Ibuprofen 400mg','Drug',300,150],['Omeprazole 20mg','Drug',100,400],['Gloves (box)','Supply',30,12000],['Syringe 5ml','Supply',200,300],['Bandage','Supply',80,1500],['IV set','Supply',60,2500],['Suture thread','Supply',50,3000],['Dental filling kit','Supply',25,8000]].map(([n,c,s,p])=>({n,c,s,p}))}}
 let D;try{D=JSON.parse(localStorage.getItem(K))||seed()}catch(x){D=seed()}
+/* ===== CLOUD DATABASE (JSONBin.io) ===== */
+D._ts=D._ts||0;
+const CB={get key(){try{return localStorage.getItem('codest_cloud_key')||''}catch(x){return ''}},get bin(){try{return localStorage.getItem('codest_cloud_bin')||''}catch(x){return ''}}};
+let CP=null;
+const saveLocal=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(x){}};
+function CLOUDST(){return(!CB.key||!CB.bin)?'☁ OFF':CP?'☁ SYNC…':'☁ ON'}
+const cloudUI=()=>{const s=$$('#cloudst');if(s)s.textContent=CLOUDST()};
+const save=()=>{D._ts=Date.now();saveLocal();if(CB.key&&CB.bin){clearTimeout(CP);CP=setTimeout(cloudPush,1500)}};
+async function cloudPush(){CP=1;cloudUI();try{const r=await fetch('https://api.jsonbin.io/v3/b/'+CB.bin,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':CB.key},body:JSON.stringify(D)});if(!r.ok)throw new Error('HTTP '+r.status)}catch(x){toast('Cloud save failed: '+x.message)}CP=null;cloudUI()}
+async function cloudPull(){if(!CB.key||!CB.bin)return;cloudUI();try{const r=await fetch('https://api.jsonbin.io/v3/b/'+CB.bin+'/latest',{headers:{'X-Master-Key':CB.key}});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();const rec=(j&&j.record)||j;if(rec&&rec._ts&&rec._ts>(D._ts||0)){saveLocalClear(rec);location.reload()}else cloudUI()}catch(x){toast('Cloud load failed: '+x.message);cloudUI()}}
+const saveLocalClear=rec=>{try{localStorage.setItem(K,JSON.stringify(rec))}catch(x){}};
+function cloudCfg(){modal('<div class="fh">☁ Cloud Database (JSONBin.io)</div>'+
+ '<p class="mu">Taarifa zote zinahifadhiwa online na zinaonekana kutoka kifaa chochote. Pata API key na Bin ID kutoka jsonbin.io.</p>'+
+ '<label>API Key (X-Master-Key)</label><input id="ck" value="'+e(CB.key)+'">'+
+ '<label>Bin ID</label><input id="cb" value="'+e(CB.bin)+'">'+
+ '<div class="row"><button onclick="cloudSaveCfg()">Save settings</button><button class="s" onclick="cloudPull();close()">Pull from cloud</button><button class="s" onclick="close()">Close</button></div>'+
+ '<p class="mu">Hatua: 1) Fungua <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> na tengeneza account bure. 2) Tengeneza Bin mpya (Private). 3) Copy API key (Account > API Keys) na Bin ID, kisha weka hapa juu.</p>')}
+function cloudSaveCfg(){try{localStorage.setItem('codest_cloud_key',$$('#ck').value.trim());localStorage.setItem('codest_cloud_bin',$$('#cb').value.trim())}catch(x){}close();cloudUI();toast('Cloud settings saved')}
 D.cats=D.cats||['Self Referral','Pregnant Women','Referral','Emergency'];D.refs=D.refs||[];D.cardv=D.cardv||[];D.xfer=D.xfer||[];norm();
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(x){}};
 let U=null,CV=null,TAB='dash',Q='',TW=null,EP=null,PG=1,PS=10,FL='',MQ='';
 const log=a=>{D.audit.unshift({t:now(),u:U?U.name:'-',a});D.audit.length=Math.min(D.audit.length,300);save()};
 const pt=id=>D.patients.find(p=>p.id===id)||{},pn=id=>e(pt(id).name),cv=()=>D.visits.find(v=>v.id===CV),insOf=p=>p.pm==='Exempt'?undefined:D.ins.find(x=>x.n===p.ins),ini=s=>s.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
@@ -93,7 +110,7 @@ const hero=()=>`<div class="hero"><div class="t3d">CODEST AFYA</div><div class="
 function tw(){clearInterval(TW);const el=$$('#tw');if(!el)return;const P=['Registration and cashier first','OPD, Laboratory and Pharmacy','Ultrasound, Dental and Inpatient','Minor and Main Theatre','Insurance claims, Store and Reports'];let i=0,j=0,d=0;TW=setInterval(()=>{const s=P[i];j+=d?-1:1;el.textContent=s.slice(0,j);if(!d&&j>=s.length+14)d=1;if(d&&j<=0){d=0;i=(i+1)%P.length}},65)}
 function login(){const u=D.users.find(x=>x.user.toLowerCase()===$$('#lu').value.trim().toLowerCase()&&x.pw===btoa($$('#lp').value));if(!u||u.off){$$('#le').textContent=u&&u.off?'This account is disabled. Contact the administrator.':'Invalid username or password';return}U=u;log('Signed in');TAB='dash';app()}
 function logout(){log('Signed out');U=null;$$('#ws').classList.remove('on');app()}
-const TB=()=>`<div class="tb"><span class="t3d">CODEST AFYA</span><span class="live">LIVE SITE</span><span class="sp"></span><input placeholder="Search previous clients: MRN, name or phone..." onkeydown="if(event.key==='Enter'){csGo(this.value)}"><span>${e(U.email)}</span>${THSEL('thm')}<span>🔔</span><span class="av" onclick="logout()" title="Sign out">${ini(U.name)}</span></div>`;
+const TB=()=>`<div class="tb"><span class="t3d">CODEST AFYA</span><span class="live">LIVE SITE</span><span class="live" id="cloudst" style="cursor:pointer" onclick="cloudCfg()">☁ OFF</span><span class="sp"></span><input placeholder="Search previous clients: MRN, name or phone..." onkeydown="if(event.key==='Enter'){csGo(this.value)}"><span>${e(U.email)}</span>${THSEL('thm')}<span>🔔</span><span class="av" onclick="logout()" title="Sign out">${ini(U.name)}</span></div>`;
 const PROF=()=>`<div class="prof"><div class="av">${ini(U.name)}</div><b>${e(U.name)}</b><small>${e(U.title||ROLES[U.role])}</small><small>🏢 ${e(D.fac)}</small><span class="bd">✔ Verified</span><span class="bd">${ROLES[U.role].toUpperCase()}</span></div>`;
 const qv=k=>D.visits.filter(v=>!v.ended&&(k==='cash'?due(v).length:k==='doc'?v.fee.paid&&!v.closed&&!v.direct:k==='ph'?v.rx.some(r=>r.sent&&r.paid&&!r.out):v.ord.some(o=>o.k===k&&o.sent&&o.paid&&!o.d)));
 const n=k=>k==='ip'?D.beds.filter(b=>b.vid).length:QK.includes(k)?qv(k).length:0;
@@ -542,5 +559,5 @@ for(const j of job){if(j.fi){const id='F-'+Date.now().toString(36)+j.i;try{await
 j.o.rs=j.rs;j.o.cm=j.cm;j.o.ab=j.ab;j.o.r=[...j.parts,j.cm?'Comment: '+j.cm:''].filter(Boolean).join(' | ')||(j.o.pdf?'See attached PDF report':'');j.o.d=true;j.o.rby=U.name;j.o.rt=now()}
 log('Results entered '+v.id);save();close();app();toast(job.length+' result(s) saved')}
 
-app();
+app();cloudPull();
 </script></body></html>
